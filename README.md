@@ -58,7 +58,7 @@ Optional: fill in the Environment section of `AGENTS.md`, so the agent knows you
 |---|---|
 | *Fix the bug where `paginate()` skips the last page.* | Starts with the Workflow line, shows the bug first, fixes it, runs the tests, and reports what it checked. |
 | *Add CSV export to the reports page.* | Asks about what isn't clear (columns, filters, file name) before building, or builds the broader reading and lists its assumptions. |
-| *I want to build a reading-list app with user accounts.* | Asks questions over several rounds until you confirm the goal, asks which GoalProof stages you want, suggests a model and effort for each part, then writes `PLAN.md` and runs the stages you picked, such as a design review by a reviewer you choose. |
+| *I want to build a reading-list app with user accounts.* | Asks questions until you confirm the goal, lets you pick the GoalProof stages in a selection window, then writes `PLAN.md` with the riskiest part first and runs the stages you picked, such as a design review by the reviewer named in the Before option. |
 
 In Claude Code, you can also start the full workflow directly with `/playbook`.
 
@@ -68,24 +68,33 @@ In Claude Code, you can also start the full workflow directly with `/playbook`.
 
 Coding agents keep getting better at writing code and running tests. What they still struggle with is judgment around the code: whether a design is appropriate, staying aligned with the original goal, spotting architectural bottlenecks early, knowing when to reconsider a plan, and avoiding unnecessary complexity. GoalProof is a lightweight decision and workflow control layer for exactly that: **are we doing the right work, in the right way?** Whether the code works is a question for your tests; GoalProof uses their results as evidence.
 
-It guides and challenges the agent at three stages, without micromanaging each action:
+On every medium or large task, at no cost in extra questions, the agent:
+- challenges parts, dependencies, or abstractions the goal doesn't need;
+- names the riskiest part and builds it first, so bad news arrives early;
+- brings you each decision that is costly to undo, with a recommendation and an alternative;
+- stops when the work drifts from the goal or a confirmed decision, and lets you choose: continue, adjust the plan, or revert;
+- keeps a short `PLAN.md` (goal, success criteria, next step), so the next session can pick up.
 
-| Stage | The question | What happens |
+On top of that, three optional stages add checkpoints with you:
+
+| Stage | The question | What it adds |
 |---|---|---|
-| **Before execution** | Is this the right design and plan? | `PLAN.md` sets out the goal in your words, measurable success criteria, the scope, the parts, and the milestones. The design is challenged for parts, dependencies, or abstractions the goal doesn't need. Each decision that is costly to undo comes with an alternative for you to choose, and the riskiest bottleneck is built first. A reviewer you choose can check the plan before anything is built. |
-| **During execution** | Are we still on track? | After each part, a short check against the plan. If the work drifts from the goal, or the evidence says the plan is wrong, the agent stops and you choose: continue, adjust the plan, or revert. |
-| **After execution** | Did we achieve what was intended? | Each success criterion is marked met, not met, or unverified, with its evidence, and an independent outcome review is offered with its cost. |
+| **Before execution** | Is this the right plan? | `PLAN.md` gains the scope, parts, milestones, and decisions, in build order. If the stage includes a reviewer, it checks the plan first; you confirm the plan before anything is built. |
+| **During execution** | Are we still on track? | After each part, a short check against the plan, logged in `LOG.md`. |
+| **After execution** | Did we achieve what was intended? | Each success criterion is marked met, not met, or unverified, with its evidence. If the stage includes a reviewer, it checks the result too. |
 
-**You choose the stages, per task.** Each stage costs time and tokens up front to save rework later, so at the start of a medium or large task the agent asks which ones you want and recommends those that fit. In Claude Code, the question opens as a selection window:
+Skipping a stage skips only its checkpoint; the list above still applies.
+
+**Stages are chosen per task, with as few questions as possible.** On a medium task, the agent picks the stages that fit and names them in its first line, for example `Workflow: medium · stages: before, after · current settings are fine`; tell it if you want different ones. On a large task, it asks, and in Claude Code the question opens as a selection window:
 
 ```
 Which GoalProof stages for this task? (choose any)
-[x] Before execution: validate the design and plan       (Recommended)
-[ ] During execution: monitor progress and deviations
-[x] After execution: review the outcome                  (Recommended)
+[x] Before execution: confirm the plan, reviewed by the judge on Opus (~$0.05)   (Recommended)
+[ ] During execution: check progress after each part
+[x] After execution: review the outcome                                     (Recommended)
 ```
 
-Each option shows its benefit and rough cost. Your choice is saved in `PLAN.md`, so later sessions follow it, and you can change it anytime. To skip the question, set a default once in the Boundaries line of `AGENTS.md`, for example "supervision: before and after execution". Small tasks don't ask: they are done, then checked against your request. GoalProof also suggests the workflow size, model, effort, and subagents; you make the call.
+Each option shows its benefit and rough cost, including any reviewer it brings; choosing the option approves that reviewer. **The stages are your only process choice.** Inside them, the agent runs the playbook's steps itself and never asks you to approve them one by one; it asks only about the goal, decisions that are costly to undo, and, with the Before stage, the plan. The choice is saved in `PLAN.md`, so later sessions follow it, and you can change it anytime. To skip the question, set a default once in the Boundaries line of `AGENTS.md`, for example "supervision: before and after execution". Small tasks have no stages: they are done, then checked against your request. GoalProof also suggests the workflow size and, when a part needs a subagent or another model, the model and effort; you make the call.
 
 ![Typical agent setup next to GoalProof, step by step. Typical: prompt; no agreed definition of done; no plan review; agent writes code; agent says it is done; you find the bugs and it tries again; the next session starts from scratch. With GoalProof: goal clarified until you confirm it; plan with success criteria, decisions, and dependencies; plan reviewed by a separate reviewer; build part by part on the model you picked; a milestone check after each part, and if the work has drifted, adjust; outcome reviewed against the goal; lesson and plan saved for the next session.](docs/compare.png)
 
@@ -217,7 +226,7 @@ An AI agent's confidence is not proof. A model can write code that looks right, 
 
 In practice, the agent:
 - **Agrees on what "done" means before starting.** It writes success criteria that can be checked, such as tests that must pass or a number to beat.
-- **Gets a second opinion on the plan.** On large tasks, a separate reviewer checks the breakdown before any work starts, on a different model if you agree.
+- **Gets a second opinion on the plan.** On large tasks, a separate reviewer checks the breakdown before any work starts, when the Before stage you chose includes one.
 - **Measures the starting point.** It records a baseline, so any claimed improvement has something to compare against.
 - **Checks results by running them.** Tests, experiments, or measurements decide whether something works, not the agent's own explanation.
 - **Repeats measurements that vary.** Model outputs and benchmarks change from run to run, so it measures more than once before trusting a difference.
@@ -231,13 +240,13 @@ How much of this happens depends on the task. A one-line fix only needs to be ru
 | Feature | What it does |
 |---|---|
 | **Adaptive router** | Sizes every task as small, medium, or large and applies only as much process as it needs. |
-| **Decision and workflow control** | Challenges the design before execution, monitors progress, decisions, and deviations during it, and reviews the outcome after it. You pick the stages per task. |
-| **Independent critic** | A separate reviewer checks the plan, and the outcome if you ask, without seeing the author's reasoning, so its review isn't anchored. GoalProof suggests a different model for it; you decide. |
+| **Decision and workflow control** | Always challenges complexity the goal doesn't need, builds the riskiest part first, and stops when the work drifts from the goal. Optional checkpoints before, during, and after execution add a plan you confirm, progress checks, and an outcome review. |
+| **Independent critic** | A separate reviewer checks the plan and the outcome when the stage you chose includes one, without seeing the author's reasoning, so its review isn't anchored. GoalProof suggests a different model for it in the stage option; you decide. |
 | **Closed improvement loop** | Measure against the success criteria, fix the largest gap with the smallest change, repeat. Stops when the criteria are met, the budget is spent, or progress plateaus. It's the same loop shape as agentic RL (act, evaluate, improve), run at the instruction level with no training. |
 | **Eval-first experiments** | For ML, LLM, and agent work: metric and data splits before code, baselines and noise checks, seeded and recorded runs, calibrated LLM judges. |
-| **Model routing you control** | You pick a model tier for each part: a cheap model for routine work, the strongest model for the hardest part. |
+| **Model routing you control** | When a part needs a subagent or another model, you pick its tier: a cheap model for routine work, the strongest model for the hardest part. |
 | **Self-improving instructions** | Decisions, corrections, and lessons go to `LOG.md`, and a correction seen twice becomes a proposed rule. |
-| **Token-lean** | About 60 lines of core rules load per session; the full workflow loads only for large tasks; subagents run only when they save more tokens than they cost, read files instead of retyped briefs, and resume their session for follow-ups. |
+| **Token-lean** | About 70 lines of core rules load per session; the full workflow loads only for large tasks; subagents run only when they save more tokens than they cost, read files instead of retyped briefs, and resume their session for follow-ups. |
 | **Agent-agnostic** | Plain Markdown in the `AGENTS.md` format, with a thin adapter for Claude Code. |
 
 ## What's in this repo
@@ -249,7 +258,7 @@ How much of this happens depends on the task. A one-line fix only needs to be ru
 | [`skills/ai-experiment/`](skills/ai-experiment/SKILL.md) | Rigor for ML, LLM, agent, and data experiments. |
 | [`models.md`](models.md) | Maps the model tiers (cheap, balanced, strong, strongest) to real models. Claude is filled in; add your provider. |
 | [`adapters/claude-code/`](adapters/claude-code/) | Claude Code adapter: [`CLAUDE.md`](adapters/claude-code/CLAUDE.md) (imports `AGENTS.md`), the subagents [`judge`](adapters/claude-code/agents/judge.md) (read-only plan and outcome reviewer) and [`deep`](adapters/claude-code/agents/deep.md) (strongest model), and [`settings.example.json`](adapters/claude-code/settings.example.json) (permission rules and a reminder hook). |
-| [`tests/`](tests/) | A context-budget test that keeps the always-loaded rules short (`node --test`). |
+| [`tests/`](tests/) | Tests for the repo itself, run with `node --test tests/` and on every push by [CI](.github/workflows/test.yml): a context-budget test that keeps the always-loaded rules short, and a hook test that runs every hook in `settings.example.json` in bash and PowerShell. |
 | [`docs/results/`](docs/results/) | Full tables from the A/B tests behind [Results](#results). |
 | [`experiments/`](experiments/) | The test scripts, so you can re-run the A/B tests yourself. |
 | [`goalproof.pptx`](goalproof.pptx) | Slide deck explaining the workflow. |
@@ -295,7 +304,7 @@ Copy-Item adapters\claude-code\agents\*.md "$HOME\.claude\agents\"
 Then:
 
 1. **Fill in the Environment section** of `~/.claude/AGENTS.md`.
-2. **Add the permission rules and the reminder hook.** If you have no `~/.claude/settings.json`, copy `adapters/claude-code/settings.example.json` there. Otherwise, add its `ask` and `deny` entries to your existing `permissions` lists, and its `hooks` entry to your hooks. The hook adds one short reminder line to each prompt: the Workflow line, the delegation line, and the choice of GoalProof stages. The Workflow and delegation results under [Results](#6-suggestions-after-the-latest-rule-change-goalproof-only) were measured with an earlier version of it.
+2. **Add the permission rules and the reminder hook.** If you have no `~/.claude/settings.json`, copy `adapters/claude-code/settings.example.json` there. Otherwise, add its `ask` and `deny` entries to your existing `permissions` lists, and its `hooks` entry to your hooks. The hook adds one short reminder line to each prompt: the Workflow line, the stages, and the delegation line. The Workflow and delegation results under [Results](#6-suggestions-after-the-latest-rule-change-goalproof-only) were measured with an earlier version of it. **If you edit the hook**, keep its text in single quotes with no apostrophes, then run the command in bash (Git Bash on Windows) and check that it exits 0. A `UserPromptSubmit` hook that exits 2 blocks every prompt, and an unquoted `(` is enough to cause that.
 3. **Start a new session** and run `/context` to confirm the files loaded.
 
 Already have a `~/.claude/CLAUDE.md`? Back it up and merge by hand. Cloud sessions (Claude Code on the web) don't read `~/.claude`: commit the files into the project instead (`CLAUDE.md` and `AGENTS.md` at the root, skills in `.claude/skills/`, agents in `.claude/agents/`, rules in `.claude/settings.json`).
@@ -315,8 +324,8 @@ The agent sizes each new task first and tells you, in one line, which workflow i
 | Size | When | What the agent does |
 |---|---|---|
 | Small | A clear task, about one file, or a question | Implements, then checks the result against the request |
-| Medium | A few files and a clear goal | Asks which GoalProof stages you want, then plans, implements, runs the stages you picked, and logs decisions |
-| Large | New project, design choices, research, or an unclear goal | Asks which GoalProof stages you want, then follows the ten-step playbook |
+| Medium | A few files and a clear goal | Names the stages it will run in its first line, then plans, builds the riskiest part first, runs those stages, and logs decisions |
+| Large | New project, design choices, research, or an unclear goal | Lets you pick the stages, then follows the ten-step playbook, skipping the steps that don't apply |
 
 A large task goes through three phases:
 
@@ -325,13 +334,13 @@ flowchart TD
     A(["Large task"]) --> PLAN
     subgraph PLAN["1. Understand and plan"]
         direction LR
-        P1["Ask questions in rounds<br/>until you confirm the goal"] --> P2["Split into parts that<br/>can each be tested"] --> J{"A judge on another<br/>model: any gaps?"}
+        P1["Ask questions until<br/>you confirm the goal"] --> P2["Split into parts that<br/>can each be tested"] --> J{"Before stage: does<br/>the judge find gaps?"}
         J -->|"yes: fix them<br/>(judge runs at most twice)"| P2
     end
     PLAN -->|"no gaps"| PREP
     subgraph PREP["2. Prepare"]
         direction LR
-        R["Find the<br/>riskiest part"] --> C["Papers if research,<br/>pin down constraints"] --> BU["You approve the model<br/>and budget for each part"]
+        R["Find the<br/>riskiest part"] --> C["Papers if research;<br/>unknown constraints"] --> BU["Model per part in the<br/>plan, where they differ"]
     end
     PREP --> BUILD
     subgraph BUILD["3. Build and improve"]
@@ -351,25 +360,27 @@ flowchart TD
 
 ### The ten steps (`skills/playbook`)
 
-1. **Understand.** The agent asks a few questions per round until you confirm the goal, inputs, outputs, success criteria, and scope.
-2. **Divide.** It splits the problem into sub-problems that can each be tested on their own.
-   - **2.1 Judge.** Once you agree, an independent reviewer checks the design: a stronger model you name, one the agent suggests, or the same model. It works without seeing the author's reasoning. The agent revises on its gaps; a second review, if needed, continues the same reviewer with only the changes.
+Steps 1, 2, 3, 8, and 10 always run. Steps 2.1, 4, 5, and 9 run only when their condition holds, and are skipped silently otherwise. You never approve steps one by one: your choices are the stages, the goal, and costly decisions.
+
+1. **Understand.** The agent asks a few questions per round until you confirm the goal, inputs, outputs, success criteria, and scope. It asks another round only while the goal is still unclear.
+2. **Divide.** It splits the problem into sub-problems that can each be tested on their own, using the simplest breakdown that covers the criteria.
+   - **2.1 Judge** (when the Before stage includes a reviewer). The reviewer named in the stage option checks the design, with no second question; the agent suggests a model different from its own. It works without seeing the author's reasoning. The agent revises on its gaps; a second review, if needed, continues the same reviewer with only the changes.
 3. **Bottlenecks.** It finds the riskiest part and builds it first.
-4. **Papers.** For research problems, it suggests papers and tools, verified with a web search.
-5. **Constraints.** Hardware, time, budget, libraries, and what must not change. These can change later, and the plan is rechecked when they do.
+4. **Papers** (research problems only). It adds papers and tools to the plan, verified with a web search, along with any references you gave.
+5. **Constraints** (with the Before stage). It records them in the plan, marking guesses as assumptions for you to check when you confirm it. They can change later, and the plan is rechecked when they do.
 6. **Read lean.** It searches before reading and does its own searches instead of spawning subagents.
 7. **Brief lean.** Subagents are rare: each gets one whole component, exact paths, scope, and a reply format.
-8. **Log.** Decisions, corrections, and lessons go in `LOG.md`.
-9. **Budget.** It recommends a model tier and effort for each component, and you pick.
-10. **Improve.** It measures, fixes the largest gap, and repeats. It stops when the criteria are met, the budget is spent, or two rounds pass with no gain.
+8. **Log.** Decisions, deviations, and lessons go in `LOG.md`, one line each.
+9. **Budget** (with the Before stage, when parts need different models). It puts a model tier and effort for those parts in the plan; confirming the plan approves them.
+10. **Deviations and outcome.** It stops when the work drifts from the goal. With the During stage, it checks each part; with the After stage, it reviews the outcome. Then it fixes the largest gap and repeats, stopping when the criteria are met, the budget is spent, or two rounds pass with no gain.
 
-### Pick the model for each part
+### Pick the model when a part needs one
 
-Before calling a subagent, the agent shows one line: the work, the agent, and the model and effort it suggests, with a short reason and rough cost. If that costs more than the default, it waits for your answer and then uses the model and effort you chose:
+Before calling a subagent, the agent shows one line: the work, the agent, and the model and effort it suggests, with a short reason and rough cost. If that costs more than the default and you haven't already approved it (through a stage you chose or the plan you confirmed), it waits for your answer and then uses the model and effort you chose:
 
 > Delegation: `judge` reviews `PLAN.md` · suggest **Opus, medium effort** (a different model catches more of my blind spots; costs more per token) · or Sonnet, the cheaper default. Which do you want?
 
-For a medium or large task, it also suggests a model and effort for each part before building. `models.md` maps tiers to real models. Each subagent call adds a large fixed overhead (often around 20K tokens), so the agent delegates whole components, never small lookups, and suggests switching the session's model when one model fits most of the remaining work.
+It suggests a model and effort for a part only when that part needs a subagent or a model other than the session's, so most tasks never see the question. `models.md` maps tiers to real models. Each subagent call adds a large fixed overhead (often around 20K tokens), so the agent delegates whole components, never small lookups, and suggests switching the session's model when one model fits most of the remaining work.
 
 **In Claude Code**, no API key or code is needed. Each part runs as a subagent on the account Claude Code is signed in with, and [counts toward the same usage limits](https://code.claude.com/docs/en/sub-agents) as the main conversation. Haiku, Sonnet, or Opus can be set when a subagent is called, and the strongest tier (Fable) runs through the `deep` agent. Fable isn't the default on any plan and may draw on [usage credits](https://code.claude.com/docs/en/model-config).
 
@@ -422,7 +433,7 @@ No. It removes no capability: the agent keeps all its tools, models, subagents, 
 
 - It asks before guessing on unclear requirements, and checks its work before calling it done.
 - It suggests a model and effort level instead of choosing silently, and never switches them on its own.
-- It asks which supervision stages you want on a medium or large task, instead of running all of them, and it challenges the plan rather than micromanaging each action.
+- It runs only the supervision stages that fit: on a medium task it names them in its first line, and on a large task it asks. It challenges the plan rather than micromanaging each action.
 - It asks before adding a dependency, installing tools, committing, pushing, or deleting.
 - It keeps changes scoped to the task, and mentions unrelated improvements instead of making them.
 - It avoids subagents for small lookups, because each one adds a large fixed token cost.

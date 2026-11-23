@@ -3,9 +3,9 @@
 ## Goal (confirmed by the user on YYYY-MM-DD)
 <One or two sentences, in the user's words.>
 
-## Supervision (chosen by the user on YYYY-MM-DD)
-- [ ] Before execution: validate the design and plan
-- [ ] During execution: monitor progress, decisions, and deviations
+## Supervision (chosen on YYYY-MM-DD; each stage adds a checkpoint with the user)
+- [ ] Before execution: confirm the plan
+- [ ] During execution: check progress after each part
 - [ ] After execution: review the outcome
 
 ## Success criteria (in the user's words; each one measurable)
@@ -17,8 +17,10 @@ At the outcome review, mark each one met, not met, or unverified, with its evide
 - **Out:** <what it deliberately leaves out>
 
 ## Parts and milestones (in build order)
-| Part | Purpose | Depends on | Milestone: done when | Model / effort | Status |
-|---|---|---|---|---|---|
+| Part | Purpose | Depends on | Milestone: done when | Status |
+|---|---|---|---|---|
+
+Model and effort: list them only for a part that runs on a subagent or a model other than the session's.
 
 ## Critical decisions (costly to undo; the user decides)
 | Date | Decision | Alternative | Why | Status |

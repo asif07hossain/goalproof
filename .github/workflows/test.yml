@@ -1,0 +1,13 @@
+# Runs the repo's own tests on every push and pull request: the context budget, and every hook in
+# adapters/claude-code/settings.example.json run in bash and PowerShell (a broken hook can block every prompt).
+name: tests
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node --test tests/
