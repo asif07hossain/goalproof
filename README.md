@@ -85,7 +85,17 @@ On top of that, three optional stages add checkpoints with you:
 
 Skipping a stage skips only its checkpoint; the list above still applies.
 
-**Stages are chosen per task, with as few questions as possible.** On a medium task, the agent picks the stages that fit and names them in its first line, for example `Workflow: medium · stages: before, after · current settings are fine`; tell it if you want different ones. On a large task, it asks, and in Claude Code the question opens as a selection window:
+**GoalProof asks about supervision only when the answer materially changes the work.**
+
+| Situation | What happens |
+|---|---|
+| Small task | No stages, no questions about them: it just does the work and checks it. |
+| Medium task | It picks the stages that fit and names them in its first line, for example `Workflow: medium · stages: before, after · current settings are fine`. It doesn't ask; tell it if you want different ones. |
+| Large task | It asks once which stages to run. |
+| Follow-up | It never asks again. It keeps the size and stages already chosen, from `PLAN.md` in a later session. |
+| Unclear requirements | It asks only what changes what gets built, and decides the rest itself. |
+
+For a large task in Claude Code, the one question opens as a selection window:
 
 ```
 Which GoalProof stages for this task? (choose any)
@@ -94,7 +104,7 @@ Which GoalProof stages for this task? (choose any)
 [x] After execution: review the outcome                                     (Recommended)
 ```
 
-Each option shows its benefit and rough cost, including any reviewer it brings; choosing the option approves that reviewer. **The stages are your only process choice.** Inside them, the agent runs the playbook's steps itself and never asks you to approve them one by one; it asks only about the goal, decisions that are costly to undo, and, with the Before stage, the plan. The choice is saved in `PLAN.md`, so later sessions follow it, and you can change it anytime. To skip the question, set a default once in the Boundaries line of `AGENTS.md`, for example "supervision: before and after execution". Small tasks have no stages: they are done, then checked against your request. GoalProof also suggests the workflow size and, when a part needs a subagent or another model, the model and effort; you make the call.
+Each option shows its benefit and rough cost, including any reviewer it brings; choosing the option approves that reviewer. **The stages are your only process choice.** Inside them, the agent runs the playbook's steps itself and never asks you to approve them one by one; it asks only about the goal, decisions that are costly to undo, and, with the Before stage, the plan. The choice is saved in `PLAN.md`, so later sessions follow it, and you can change it anytime. To skip even that question, set a default once in the Boundaries line of `AGENTS.md`, for example "supervision: before and after execution". GoalProof also suggests the workflow size and, when a part needs a subagent or another model, the model and effort; you make the call.
 
 ![Typical agent setup next to GoalProof, step by step. Typical: prompt; no agreed definition of done; no plan review; agent writes code; agent says it is done; you find the bugs and it tries again; the next session starts from scratch. With GoalProof: goal clarified until you confirm it; plan with success criteria, decisions, and dependencies; plan reviewed by a separate reviewer; build part by part on the model you picked; a milestone check after each part, and if the work has drifted, adjust; outcome reviewed against the goal; lesson and plan saved for the next session.](docs/compare.png)
 
@@ -323,9 +333,10 @@ The agent sizes each new task first and tells you, in one line, which workflow i
 
 | Size | When | What the agent does |
 |---|---|---|
-| Small | A clear task, about one file, or a question | Implements, then checks the result against the request |
+| Small | A clear task, about one file, or a question | Implements, then checks the result against the request; no stages |
 | Medium | A few files and a clear goal | Names the stages it will run in its first line, then plans, builds the riskiest part first, runs those stages, and logs decisions |
-| Large | New project, design choices, research, or an unclear goal | Lets you pick the stages, then follows the ten-step playbook, skipping the steps that don't apply |
+| Large | New project, design choices, research, or an unclear goal | Asks once which stages to run, then follows the ten-step playbook, skipping the steps that don't apply |
+| Follow-up | A message that continues the current task, in this or a later session | Keeps the size and stages already chosen; never asks again |
 
 A large task goes through three phases:
 
@@ -433,7 +444,7 @@ No. It removes no capability: the agent keeps all its tools, models, subagents, 
 
 - It asks before guessing on unclear requirements, and checks its work before calling it done.
 - It suggests a model and effort level instead of choosing silently, and never switches them on its own.
-- It runs only the supervision stages that fit: on a medium task it names them in its first line, and on a large task it asks. It challenges the plan rather than micromanaging each action.
+- It runs only the supervision stages that fit: on a medium task it names them in its first line, on a large task it asks once, and on a follow-up it never asks again. It challenges the plan rather than micromanaging each action.
 - It asks before adding a dependency, installing tools, committing, pushing, or deleting.
 - It keeps changes scoped to the task, and mentions unrelated improvements instead of making them.
 - It avoids subagents for small lookups, because each one adds a large fixed token cost.

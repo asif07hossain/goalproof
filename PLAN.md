@@ -47,6 +47,7 @@ At the outcome review, mark each one met, not met, or unverified, with its evide
 | 2026-11-23 | Hook stays an `echo` with the text in single quotes and no apostrophes; the test enforces it | A Node script file for the hook | No new file, and no `node` run on every prompt; the old script hook was removed in 0886b89 for being heavy. Single quotes are literal in bash and PowerShell. | active (user confirmed 2026-11-23) |
 | 2026-11-23 | CI uses `actions/checkout` and `actions/setup-node` (Node 20) | The runner's preinstalled Node | A pinned Node version; these are standard GitHub actions (a dependency of the repo's CI only, not of users) | active (user confirmed 2026-11-23) |
 | 2026-11-23 | **The three stages are the only user-facing process choice** (user's request). GoalProof runs the ten steps itself, without asking approval for each. The user is still asked about the goal, costly decisions, the plan (Before), and drift. Choosing a stage approves the reviewer named in its option; a confirmed plan approves its models. | Ask per step (reviewer, references, constraints, budget, outcome review) | Minimum interaction; one consent point that shows the cost | active |
+| 2026-11-23 | **Ask about supervision only when it materially changes the work** (user's request, the third correction about asking too often). Small: no stages. Medium: pick the stages, don't ask. Large: ask once. Follow-up: inherit, never re-ask. Unclear requirements: only the essential questions. The reminder hook says the same on every prompt. | Keep asking per task | The earlier hook text ("For a large task, ask which stages") ran on every prompt, follow-ups included | active |
 
 ## Walk-through for C6: a large task with Before skipped
 (Expected answer from the new rules.) The agent still clarifies the goal (playbook step 1, one round if it's already clear), splits the work, names the riskiest part and builds it first, sends costly decisions to you, keeps a short `PLAN.md`, and stops on drift. It skips the confirmation wait for the full plan, the plan review (2.1), the constraints round (5), and the budget table (9).
@@ -67,4 +68,11 @@ At the outcome review, mark each one met, not met, or unverified, with its evide
 - No push or commit without your OK. This repo is on `main`, so a branch comes first.
 
 ## Next session starts here
-P1-P8 done 2026-11-23 (see LOG.md). Open: the outcome review offer; commit and push wait for the user (create a branch first, since this repo is on main); CI runs on GitHub only after a push.
+Done and pushed: P1-P8 (cc662de) and the no-re-ask rule (2026-11-23).
+
+**Tomorrow: discuss experiments.** The question is how to show that GoalProof works well and beats a default coding agent. Nothing has been decided; the proposal so far, all on Sonnet at medium effort:
+- **A. Less interaction:** old rules (0886b89) vs new. Measures questions before building, per-part model questions, stage re-asks on follow-ups, cost, and time. Situations: a medium task, a large unclear task with a simulated user, a follow-up turn, and a subagent call inside an approved stage. About 30-40 runs, about $6-9.
+- **B. Judgment probes:** no GoalProof vs new rules. Does the agent challenge an over-built plan, ask before a new dependency, stop when evidence shows the plan is wrong, and build the riskiest part first? About 40 runs, about $8-12.
+- **C. Outcomes re-run:** `experiments/conv.mjs` on the new rules vs no GoalProof (first-try accuracy, human turns, cost); this would replace the README headline, which was measured on older rules. 80 runs, about $17.
+- **Harness idea:** load each rules version from a `.claude/` folder inside each run folder, with `~/.claude` excluded, so old and new can run side by side without touching the installed setup.
+- **Rigor** (ai-experiment skill): test each grader on canned pass and fail transcripts, run one pilot round, retry infrastructure errors rather than scoring them, use 5 repeats plus 5 more where the result is unclear, and add held-out tasks written after any tuning.
