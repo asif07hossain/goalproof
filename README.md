@@ -34,13 +34,12 @@ Works with Claude Code, Codex, Cursor, GitHub Copilot, Gemini CLI, and other age
 
 ```bash
 git clone https://github.com/asif07hossain/goalproof.git && cd goalproof
-mkdir -p ~/.claude/skills ~/.claude/agents ~/.claude/goalproof
+mkdir -p ~/.claude/skills ~/.claude/agents
 cp AGENTS.md models.md adapters/claude-code/CLAUDE.md ~/.claude/
 cp -r skills/* ~/.claude/skills/ && cp adapters/claude-code/agents/*.md ~/.claude/agents/
-cp verify/goalproof-core.mjs verify/goalproof-verify.mjs adapters/claude-code/goalproof-hook.mjs ~/.claude/goalproof/
 ```
 
-Already have a `~/.claude/CLAUDE.md`? Back it up first, then merge the two by hand. Recommended: also add the safety rules and the hooks from `adapters/claude-code/settings.example.json` to `~/.claude/settings.json`, so the agent can't finish a turn whose code fails your tests (see [Install](#claude-code-all-projects)).
+Already have a `~/.claude/CLAUDE.md`? Back it up first, then merge the two by hand. Recommended: also add the safety rules and the reminder hook from `adapters/claude-code/settings.example.json` to `~/.claude/settings.json` (see [Install](#claude-code-all-projects)).
 
 *Any other agent* (Codex, Cursor, GitHub Copilot, Gemini CLI, and others), per project:
 
@@ -59,21 +58,40 @@ Optional: fill in the Environment section of `AGENTS.md`, so the agent knows you
 |---|---|
 | *Fix the bug where `paginate()` skips the last page.* | Starts with the Workflow line, shows the bug first, fixes it, runs the tests, and reports what it checked. |
 | *Add CSV export to the reports page.* | Asks about what isn't clear (columns, filters, file name) before building, or builds the broader reading and lists its assumptions. |
-| *I want to build a reading-list app with user accounts.* | Asks questions over several rounds until you confirm the goal, writes `PLAN.md`, proposes a design review by a reviewer you choose, and suggests a model and effort for each part. |
+| *I want to build a reading-list app with user accounts.* | Asks questions over several rounds until you confirm the goal, asks which GoalProof stages you want, suggests a model and effort for each part, then writes `PLAN.md` and runs the stages you picked, such as a design review by a reviewer you choose. |
 
 In Claude Code, you can also start the full workflow directly with `/playbook`.
 
-**4. Stay in charge.** Every suggestion is yours to accept or change: *"use the large workflow"*, *"skip the review"*, *"use Opus for the parser"*, *"lower the effort"*. To remove GoalProof, delete the files you copied.
+**4. Stay in charge.** Every suggestion is yours to accept or change: *"use the large workflow"*, *"skip the during-execution checks"*, *"use Opus for the parser"*, *"lower the effort"*. To remove GoalProof, delete the files you copied.
 
 ## What sets it apart
 
-Most agent setups add rules about *how to write code*. GoalProof adds a loop that decides *when the work is actually done*: the agent agrees on checks up front, gets its plan reviewed, and finishes only when the checks pass. It sits on top of your agent's own workflow and suggests the strategy (workflow size, model, effort, subagents); you make the call.
+Coding agents keep getting better at writing code and running tests. What they still struggle with is judgment around the code: whether a design is appropriate, staying aligned with the original goal, spotting architectural bottlenecks early, knowing when to reconsider a plan, and avoiding unnecessary complexity. GoalProof is a lightweight decision and workflow control layer for exactly that: **are we doing the right work, in the right way?** Whether the code works is a question for your tests; GoalProof uses their results as evidence.
 
-![Typical agent setup next to GoalProof, step by step. Typical: prompt; no agreed definition of done; no plan review; agent writes code; agent says it is done; you find the bugs and it tries again; the next session starts from scratch. With GoalProof: goal clarified until you confirm it; agree what done means, with checks and success criteria; plan reviewed by a separate reviewer on large tasks; build on the model you picked; run the checks, and if they fail, fix the cause; done, with evidence you can see; lesson and plan saved for the next session.](docs/compare.png)
+It guides and challenges the agent at three stages, without micromanaging each action:
+
+| Stage | The question | What happens |
+|---|---|---|
+| **Before execution** | Is this the right design and plan? | `PLAN.md` sets out the goal in your words, measurable success criteria, the scope, the parts, and the milestones. The design is challenged for parts, dependencies, or abstractions the goal doesn't need. Each decision that is costly to undo comes with an alternative for you to choose, and the riskiest bottleneck is built first. A reviewer you choose can check the plan before anything is built. |
+| **During execution** | Are we still on track? | After each part, a short check against the plan. If the work drifts from the goal, or the evidence says the plan is wrong, the agent stops and you choose: continue, adjust the plan, or revert. |
+| **After execution** | Did we achieve what was intended? | Each success criterion is marked met, not met, or unverified, with its evidence, and an independent outcome review is offered with its cost. |
+
+**You choose the stages, per task.** Each stage costs time and tokens up front to save rework later, so at the start of a medium or large task the agent asks which ones you want and recommends those that fit. In Claude Code, the question opens as a selection window:
+
+```
+Which GoalProof stages for this task? (choose any)
+[x] Before execution: validate the design and plan       (Recommended)
+[ ] During execution: monitor progress and deviations
+[x] After execution: review the outcome                  (Recommended)
+```
+
+Each option shows its benefit and rough cost. Your choice is saved in `PLAN.md`, so later sessions follow it, and you can change it anytime. To skip the question, set a default once in the Boundaries line of `AGENTS.md`, for example "supervision: before and after execution". Small tasks don't ask: they are done, then checked against your request. GoalProof also suggests the workflow size, model, effort, and subagents; you make the call.
+
+![Typical agent setup next to GoalProof, step by step. Typical: prompt; no agreed definition of done; no plan review; agent writes code; agent says it is done; you find the bugs and it tries again; the next session starts from scratch. With GoalProof: goal clarified until you confirm it; plan with success criteria, decisions, and dependencies; plan reviewed by a separate reviewer; build part by part on the model you picked; a milestone check after each part, and if the work has drifted, adjust; outcome reviewed against the goal; lesson and plan saved for the next session.](docs/compare.png)
 
 | | Typical agent setup | GoalProof |
 |---|---|---|
-| **When is it done?** | When the agent says so | When the checks agreed at the start pass |
+| **When is it done?** | When the agent says so | When the success criteria agreed at the start are met, with evidence |
 | **Who checks the plan?** | Usually no one, or the model that wrote it | A separate reviewer, at most twice, reading a plan file to save tokens; a different model is suggested, not imposed |
 | **How much process?** | The same for every task | Scaled to the task: a one-line fix is just run and checked; a new project gets the full workflow |
 | **Which model does the work?** | One model for everything | You pick per part, from cheap to strongest, so spending follows difficulty |
@@ -84,7 +102,7 @@ Most agent setups add rules about *how to write code*. GoalProof adds a loop tha
 
 ## Results
 
-Every experiment runs the same agent (Claude Code on Sonnet, medium effort) on the same tasks, 5 times with GoalProof switched on and 5 times with it off. Hidden checks that the agent never sees decide whether its code is right, and when the agent asks a question, a simulated user answers it. That makes 160 runs in all, about \$34 at API list prices.
+These results were measured with an earlier version of the rules; the current version, built around the three supervision stages, has not been re-measured yet. Every experiment runs the same agent (Claude Code on Sonnet, medium effort) on the same tasks, 5 times with GoalProof switched on and 5 times with it off. Hidden checks that the agent never sees decide whether its code is right, and when the agent asks a question, a simulated user answers it. That makes 160 runs in all, about \$34 at API list prices.
 
 **Evidence** comes from 95% bootstrap confidence intervals. *Strong* and *Moderate* mean the result holds across tasks; *Supported* means it holds on one task; *Weak* means better on average, but it could be chance; *Against* means GoalProof was reliably worse.
 
@@ -213,25 +231,25 @@ How much of this happens depends on the task. A one-line fix only needs to be ru
 | Feature | What it does |
 |---|---|
 | **Adaptive router** | Sizes every task as small, medium, or large and applies only as much process as it needs. |
-| **Independent critic** | A separate reviewer checks the plan without seeing the author's reasoning, so its review isn't anchored. GoalProof suggests a different model for it; you decide. |
+| **Decision and workflow control** | Challenges the design before execution, monitors progress, decisions, and deviations during it, and reviews the outcome after it. You pick the stages per task. |
+| **Independent critic** | A separate reviewer checks the plan, and the outcome if you ask, without seeing the author's reasoning, so its review isn't anchored. GoalProof suggests a different model for it; you decide. |
 | **Closed improvement loop** | Measure against the success criteria, fix the largest gap with the smallest change, repeat. Stops when the criteria are met, the budget is spent, or progress plateaus. It's the same loop shape as agentic RL (act, evaluate, improve), run at the instruction level with no training. |
 | **Eval-first experiments** | For ML, LLM, and agent work: metric and data splits before code, baselines and noise checks, seeded and recorded runs, calibrated LLM judges. |
 | **Model routing you control** | You pick a model tier for each part: a cheap model for routine work, the strongest model for the hardest part. |
 | **Self-improving instructions** | Decisions, corrections, and lessons go to `LOG.md`, and a correction seen twice becomes a proposed rule. |
-| **Token-lean** | About 55 lines of core rules load per session; the full workflow loads only for large tasks; subagents run only when they save more tokens than they cost, read files instead of retyped briefs, and resume their session for follow-ups. |
+| **Token-lean** | About 60 lines of core rules load per session; the full workflow loads only for large tasks; subagents run only when they save more tokens than they cost, read files instead of retyped briefs, and resume their session for follow-ups. |
 | **Agent-agnostic** | Plain Markdown in the `AGENTS.md` format, with a thin adapter for Claude Code. |
 
 ## What's in this repo
 
 | Path | What it is |
 |---|---|
-| [`AGENTS.md`](AGENTS.md) | Core rules for any agent: principles, task sizing, verification, debugging, git safety. |
+| [`AGENTS.md`](AGENTS.md) | Core rules for any agent: principles, task sizing, the three supervision stages, evidence, git safety. |
 | [`skills/playbook/`](skills/playbook/SKILL.md) | The full ten-step workflow for large tasks. |
 | [`skills/ai-experiment/`](skills/ai-experiment/SKILL.md) | Rigor for ML, LLM, agent, and data experiments. |
 | [`models.md`](models.md) | Maps the model tiers (cheap, balanced, strong, strongest) to real models. Claude is filled in; add your provider. |
-| [`verify/`](verify/) | The agent-independent verifier: finds and runs the project's checks, records the evidence, and links the success criteria in `PLAN.md` to checks. |
-| [`adapters/claude-code/`](adapters/claude-code/) | Claude Code adapter: [`CLAUDE.md`](adapters/claude-code/CLAUDE.md) (imports `AGENTS.md`), the subagents [`judge`](adapters/claude-code/agents/judge.md) (read-only plan reviewer) and [`deep`](adapters/claude-code/agents/deep.md) (strongest model), [`settings.example.json`](adapters/claude-code/settings.example.json) (permission rules and hooks), and `goalproof-hook.mjs`, which connects Claude Code's hooks to the verifier. |
-| [`adapters/ci/`](adapters/ci/) | A pre-commit hook and a GitHub Actions workflow that run the same checks with no agent involved. |
+| [`adapters/claude-code/`](adapters/claude-code/) | Claude Code adapter: [`CLAUDE.md`](adapters/claude-code/CLAUDE.md) (imports `AGENTS.md`), the subagents [`judge`](adapters/claude-code/agents/judge.md) (read-only plan and outcome reviewer) and [`deep`](adapters/claude-code/agents/deep.md) (strongest model), and [`settings.example.json`](adapters/claude-code/settings.example.json) (permission rules and a reminder hook). |
+| [`tests/`](tests/) | A context-budget test that keeps the always-loaded rules short (`node --test`). |
 | [`docs/results/`](docs/results/) | Full tables from the A/B tests behind [Results](#results). |
 | [`experiments/`](experiments/) | The test scripts, so you can re-run the A/B tests yourself. |
 | [`goalproof.pptx`](goalproof.pptx) | Slide deck explaining the workflow. |
@@ -257,11 +275,10 @@ Then fill in the Environment section of `AGENTS.md`, and the "Your provider" col
 ```bash
 git clone https://github.com/asif07hossain/goalproof.git
 cd goalproof
-mkdir -p ~/.claude/skills ~/.claude/agents ~/.claude/goalproof
+mkdir -p ~/.claude/skills ~/.claude/agents
 cp AGENTS.md models.md adapters/claude-code/CLAUDE.md ~/.claude/
 cp -r skills/playbook skills/ai-experiment ~/.claude/skills/
 cp adapters/claude-code/agents/*.md ~/.claude/agents/
-cp verify/goalproof-core.mjs verify/goalproof-verify.mjs adapters/claude-code/goalproof-hook.mjs ~/.claude/goalproof/
 ```
 
 **Windows (PowerShell)**
@@ -269,29 +286,27 @@ cp verify/goalproof-core.mjs verify/goalproof-verify.mjs adapters/claude-code/go
 ```powershell
 git clone https://github.com/asif07hossain/goalproof.git
 cd goalproof
-New-Item -ItemType Directory -Force "$HOME\.claude\skills", "$HOME\.claude\agents", "$HOME\.claude\goalproof" | Out-Null
+New-Item -ItemType Directory -Force "$HOME\.claude\skills", "$HOME\.claude\agents" | Out-Null
 Copy-Item AGENTS.md, models.md, adapters\claude-code\CLAUDE.md "$HOME\.claude\"
 Copy-Item -Recurse skills\playbook, skills\ai-experiment "$HOME\.claude\skills\"
 Copy-Item adapters\claude-code\agents\*.md "$HOME\.claude\agents\"
-Copy-Item verify\goalproof-core.mjs, verify\goalproof-verify.mjs, adapters\claude-code\goalproof-hook.mjs "$HOME\.claude\goalproof\"
 ```
 
 Then:
 
 1. **Fill in the Environment section** of `~/.claude/AGENTS.md`.
-2. **Add the permission rules and the hooks.** If you have no `~/.claude/settings.json`, copy `adapters/claude-code/settings.example.json` there. Otherwise, add its `ask` and `deny` entries to your existing `permissions` lists, and its `hooks` entries to your hooks (they need Node). When a turn changed code, the `Stop` hook runs your project's checks itself: those in `.goalproof/checks.json`, or a detected `npm test`, pytest, `go test`, `cargo test`, or `make test`. If they fail, the agent gets the output and one more turn; if they pass, you see "GoalProof verified" and the evidence is saved in `.goalproof/evidence.json`. A project with no checks gets a one-time reminder to run the code instead. The `UserPromptSubmit` hooks record the code's state at the start of each turn and add one short reminder line to each prompt; the Workflow and delegation results under [Results](#6-suggestions-after-the-latest-rule-change-goalproof-only) were measured with it on.
+2. **Add the permission rules and the reminder hook.** If you have no `~/.claude/settings.json`, copy `adapters/claude-code/settings.example.json` there. Otherwise, add its `ask` and `deny` entries to your existing `permissions` lists, and its `hooks` entry to your hooks. The hook adds one short reminder line to each prompt: the Workflow line, the delegation line, and the choice of GoalProof stages. The Workflow and delegation results under [Results](#6-suggestions-after-the-latest-rule-change-goalproof-only) were measured with an earlier version of it.
 3. **Start a new session** and run `/context` to confirm the files loaded.
 
-Already have a `~/.claude/CLAUDE.md`? Back it up and merge by hand. Cloud sessions (Claude Code on the web) don't read `~/.claude`: commit the files into the project instead (`CLAUDE.md` and `AGENTS.md` at the root, skills in `.claude/skills/`, agents in `.claude/agents/`, the three scripts in `.goalproof/`, and rules in `.claude/settings.json` with the hook commands pointing at `$CLAUDE_PROJECT_DIR/.goalproof/goalproof-hook.mjs`).
+Already have a `~/.claude/CLAUDE.md`? Back it up and merge by hand. Cloud sessions (Claude Code on the web) don't read `~/.claude`: commit the files into the project instead (`CLAUDE.md` and `AGENTS.md` at the root, skills in `.claude/skills/`, agents in `.claude/agents/`, rules in `.claude/settings.json`).
 
 ### Support by agent
 
-| What | Claude Code | Codex CLI, Cursor, Gemini CLI, GitHub Copilot | Any agent, through git and CI |
-|---|---|---|---|
-| Core rules and skills | Loaded through `CLAUDE.md`; skills load natively | Read from `AGENTS.md` (point the agent at it if it uses another file name) | |
-| Plan review by a separate reviewer | The `judge` subagent | A separate session, on the model you pick | |
-| The project's checks run when the agent finishes a turn | `Stop` hook, tested | Not yet. Each of these agents has an end-of-turn hook ([Codex `Stop`](https://developers.openai.com/codex/hooks), [Cursor `stop`](https://cursor.com/docs/agent/hooks), [Gemini CLI `AfterAgent`](https://geminicli.com/docs/hooks/)), so an adapter is a small translation; none has been written or tested | |
-| The same checks before each commit and in CI | | | [`adapters/ci/`](adapters/ci/): pre-commit hook tested; GitHub Actions workflow not yet run |
+| What | Claude Code | Codex CLI, Cursor, Gemini CLI, GitHub Copilot |
+|---|---|---|
+| Core rules, skills, and the three supervision stages | Loaded through `CLAUDE.md`; skills load natively | Read from `AGENTS.md` (point the agent at it if it uses another file name) |
+| Plan and outcome review by a separate reviewer | The `judge` subagent | A separate session, on the model you pick |
+| A reminder at each prompt (Workflow line, delegation line, choice of stages) | A `UserPromptSubmit` hook | Not yet: each of these agents has prompt hooks, but no adapter has been written |
 
 ## How it works
 
@@ -299,9 +314,9 @@ The agent sizes each new task first and tells you, in one line, which workflow i
 
 | Size | When | What the agent does |
 |---|---|---|
-| Small | A clear task, about one file, or a question | Implements and verifies |
-| Medium | A few files and a clear goal | Asks only if something is unclear, writes a short plan, implements, verifies, logs decisions |
-| Large | New project, design choices, research, or an unclear goal | Follows the ten-step playbook |
+| Small | A clear task, about one file, or a question | Implements, then checks the result against the request |
+| Medium | A few files and a clear goal | Asks which GoalProof stages you want, then plans, implements, runs the stages you picked, and logs decisions |
+| Large | New project, design choices, research, or an unclear goal | Asks which GoalProof stages you want, then follows the ten-step playbook |
 
 A large task goes through three phases:
 
@@ -373,17 +388,17 @@ For training, fine-tuning, prompt or model comparisons, agents, and benchmarks, 
 
 | File | Purpose |
 |---|---|
-| `PLAN.md` | Confirmed requirements, sub-problems, constraints, budget, and progress. Carries context across sessions. |
-| `LOG.md` | Append-only record of decisions, corrections, judge results, run results, and lessons. |
-| `.goalproof/` | `checks.json` (optional, yours: the commands that decide "done"), plus `evidence.json` and `state.json`, written by the verifier and ignored by git. |
+| `PLAN.md` | The goal, success criteria, scope, parts and milestones, critical decisions, dependencies and bottlenecks, and progress ([template](skills/playbook/PLAN.template.md)). Carries context across sessions. |
+| `LOG.md` | Append-only record of decisions, milestone checks, deviations, corrections, judge results, and lessons. |
 | `AGENTS.md` | Offered when a project has no instruction file: build and test commands, misleading spots, decisions not recorded in the repo, and repeated corrections. |
 
 ## Design
 
 - **The core file stays short** (Claude Code's docs suggest under 200 lines per instruction file) and holds only what applies to every task, because longer files reduce how closely each rule is followed.
 - **Multi-step procedures are skills**, loaded only when a task needs them.
-- **One core, thin adapters.** The universal part, `AGENTS.md`, the skills, and the verifier in `verify/`, works the same for every agent. Agent-specific wiring lives in `adapters/`: each adapter only translates the agent's hook format to the verifier and back, so GoalProof never becomes another coding agent.
-- **Verification doesn't depend on the agent's word.** Instruction files are context, not enforcement, so where the agent allows it, GoalProof checks outcomes itself. Rules that must always hold are enforced with permission rules or hooks. In Claude Code, the `Stop` hook runs the project's checks whenever a turn changed code; a pre-commit hook and a CI workflow (`adapters/ci/`) run the same checks with no agent involved. In a live test, with GoalProof's instructions off and a prompt saying there was no need to run anything, the agent without the hook shipped a fix that failed the project's own test for an empty string. With the hook, the failing test sent it back, it handled the empty string, and the checks passed (\$0.07 vs \$0.09 for the session).
+- **A supervisor, not a test framework.** GoalProof checks the direction of the work before, during, and after execution, and challenges rather than micromanages. Whether the code works is for tests and CI; GoalProof reads their results as evidence.
+- **One core, thin adapters.** `AGENTS.md` and the skills work the same for every agent. Agent-specific wiring lives in `adapters/`, so GoalProof never becomes another coding agent.
+- **Rules that must always hold are enforced** with permission rules or hooks where the agent supports them, because instruction files are context, not enforcement.
 - **Model names live in `models.md`**, so a new model lineup means editing one file.
 - **Subagents are used sparingly and reused.** The Claude Code `judge` reads `PLAN.md` instead of a retyped brief, starts without your instruction files (`omitClaudeMd`), stops after 3 turns, and reviews at most twice. A second review continues the same session with only the changes, so the startup cost is paid once. Both agents reply with a short answer plus evidence, and only that reply enters the main conversation.
 
@@ -407,11 +422,12 @@ No. It removes no capability: the agent keeps all its tools, models, subagents, 
 
 - It asks before guessing on unclear requirements, and checks its work before calling it done.
 - It suggests a model and effort level instead of choosing silently, and never switches them on its own.
+- It asks which supervision stages you want on a medium or large task, instead of running all of them, and it challenges the plan rather than micromanaging each action.
 - It asks before adding a dependency, installing tools, committing, pushing, or deleting.
 - It keeps changes scoped to the task, and mentions unrelated improvements instead of making them.
 - It avoids subagents for small lookups, because each one adds a large fixed token cost.
 
-Each rule states its reason, and any of them can be overridden in the moment ("skip the review", "just do it", "use Opus for this"). The only hard checks are optional ones you install yourself: permission rules (no force-push, no reading `.env` files), the `Stop` hook, which runs your project's checks and sends the agent back once if they fail (never twice), and the pre-commit hook.
+Each rule states its reason, and any of them can be overridden in the moment ("skip the review", "just do it", "use Opus for this"). The only hard blocks are the optional permission rules in `adapters/claude-code/settings.example.json` (no force-push, no reading `.env` files), which you install yourself.
 
 A rule can still backfire, so rules are tested. Our first A/B test found one: "keep changes scoped" made the agent build a narrower parser than it would have without GoalProof, which cost extra rounds with the user. We changed the rule ("handling the inputs the request implies is part of the task"), and in the re-run that task tied with the baseline. The same test found a new miss, on the 4-session project, which is reported under [Results](#3-a-4-session-project). Every rule change is re-tested.
 
