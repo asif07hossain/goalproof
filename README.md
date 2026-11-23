@@ -34,12 +34,13 @@ Works with Claude Code, Codex, Cursor, GitHub Copilot, Gemini CLI, and other age
 
 ```bash
 git clone https://github.com/asif07hossain/goalproof.git && cd goalproof
-mkdir -p ~/.claude/skills ~/.claude/agents
-cp AGENTS.md CLAUDE.md models.md ~/.claude/
-cp -r skills/* ~/.claude/skills/ && cp agents/*.md ~/.claude/agents/
+mkdir -p ~/.claude/skills ~/.claude/agents ~/.claude/goalproof
+cp AGENTS.md models.md adapters/claude-code/CLAUDE.md ~/.claude/
+cp -r skills/* ~/.claude/skills/ && cp adapters/claude-code/agents/*.md ~/.claude/agents/
+cp verify/goalproof-core.mjs verify/goalproof-verify.mjs adapters/claude-code/goalproof-hook.mjs ~/.claude/goalproof/
 ```
 
-Already have a `~/.claude/CLAUDE.md`? Back it up first, then merge the two by hand. Recommended: also add the safety rules and reminder hook from `settings.example.json` to `~/.claude/settings.json` (see [Install](#claude-code-all-projects)).
+Already have a `~/.claude/CLAUDE.md`? Back it up first, then merge the two by hand. Recommended: also add the safety rules and the hooks from `adapters/claude-code/settings.example.json` to `~/.claude/settings.json`, so the agent can't finish a turn whose code fails your tests (see [Install](#claude-code-all-projects)).
 
 *Any other agent* (Codex, Cursor, GitHub Copilot, Gemini CLI, and others), per project:
 
@@ -228,9 +229,9 @@ How much of this happens depends on the task. A one-line fix only needs to be ru
 | [`skills/playbook/`](skills/playbook/SKILL.md) | The full ten-step workflow for large tasks. |
 | [`skills/ai-experiment/`](skills/ai-experiment/SKILL.md) | Rigor for ML, LLM, agent, and data experiments. |
 | [`models.md`](models.md) | Maps the model tiers (cheap, balanced, strong, strongest) to real models. Claude is filled in; add your provider. |
-| [`CLAUDE.md`](CLAUDE.md) | Claude Code adapter: imports `AGENTS.md` and adds Claude Code specifics. |
-| [`agents/`](agents/) | Claude Code subagents: [`judge`](agents/judge.md) (read-only plan reviewer) and [`deep`](agents/deep.md) (hardest sub-problems on the strongest model). |
-| [`settings.example.json`](settings.example.json) | Claude Code permission rules that enforce the git and secrets rules, and a short reminder hook for the Workflow and delegation lines. |
+| [`verify/`](verify/) | The agent-independent verifier: finds and runs the project's checks, records the evidence, and links the success criteria in `PLAN.md` to checks. |
+| [`adapters/claude-code/`](adapters/claude-code/) | Claude Code adapter: [`CLAUDE.md`](adapters/claude-code/CLAUDE.md) (imports `AGENTS.md`), the subagents [`judge`](adapters/claude-code/agents/judge.md) (read-only plan reviewer) and [`deep`](adapters/claude-code/agents/deep.md) (strongest model), [`settings.example.json`](adapters/claude-code/settings.example.json) (permission rules and hooks), and `goalproof-hook.mjs`, which connects Claude Code's hooks to the verifier. |
+| [`adapters/ci/`](adapters/ci/) | A pre-commit hook and a GitHub Actions workflow that run the same checks with no agent involved. |
 | [`docs/results/`](docs/results/) | Full tables from the A/B tests behind [Results](#results). |
 | [`experiments/`](experiments/) | The test scripts, so you can re-run the A/B tests yourself. |
 | [`goalproof.pptx`](goalproof.pptx) | Slide deck explaining the workflow. |
@@ -256,10 +257,11 @@ Then fill in the Environment section of `AGENTS.md`, and the "Your provider" col
 ```bash
 git clone https://github.com/asif07hossain/goalproof.git
 cd goalproof
-mkdir -p ~/.claude/skills ~/.claude/agents
-cp AGENTS.md CLAUDE.md models.md ~/.claude/
+mkdir -p ~/.claude/skills ~/.claude/agents ~/.claude/goalproof
+cp AGENTS.md models.md adapters/claude-code/CLAUDE.md ~/.claude/
 cp -r skills/playbook skills/ai-experiment ~/.claude/skills/
-cp agents/*.md ~/.claude/agents/
+cp adapters/claude-code/agents/*.md ~/.claude/agents/
+cp verify/goalproof-core.mjs verify/goalproof-verify.mjs adapters/claude-code/goalproof-hook.mjs ~/.claude/goalproof/
 ```
 
 **Windows (PowerShell)**
@@ -267,19 +269,29 @@ cp agents/*.md ~/.claude/agents/
 ```powershell
 git clone https://github.com/asif07hossain/goalproof.git
 cd goalproof
-New-Item -ItemType Directory -Force "$HOME\.claude\skills", "$HOME\.claude\agents" | Out-Null
-Copy-Item AGENTS.md, CLAUDE.md, models.md "$HOME\.claude\"
+New-Item -ItemType Directory -Force "$HOME\.claude\skills", "$HOME\.claude\agents", "$HOME\.claude\goalproof" | Out-Null
+Copy-Item AGENTS.md, models.md, adapters\claude-code\CLAUDE.md "$HOME\.claude\"
 Copy-Item -Recurse skills\playbook, skills\ai-experiment "$HOME\.claude\skills\"
-Copy-Item agents\*.md "$HOME\.claude\agents\"
+Copy-Item adapters\claude-code\agents\*.md "$HOME\.claude\agents\"
+Copy-Item verify\goalproof-core.mjs, verify\goalproof-verify.mjs, adapters\claude-code\goalproof-hook.mjs "$HOME\.claude\goalproof\"
 ```
 
 Then:
 
 1. **Fill in the Environment section** of `~/.claude/AGENTS.md`.
-2. **Add the permission rules and the reminder hook.** If you have no `~/.claude/settings.json`, copy `settings.example.json` there. Otherwise, add its `ask` and `deny` entries to your existing `permissions` lists, and its `hooks` entry to your hooks. The hook adds one short reminder line to each prompt; the Workflow and delegation results under [Results](#6-suggestions-after-the-latest-rule-change-goalproof-only) were measured with it on.
+2. **Add the permission rules and the hooks.** If you have no `~/.claude/settings.json`, copy `adapters/claude-code/settings.example.json` there. Otherwise, add its `ask` and `deny` entries to your existing `permissions` lists, and its `hooks` entries to your hooks (they need Node). When a turn changed code, the `Stop` hook runs your project's checks itself: those in `.goalproof/checks.json`, or a detected `npm test`, pytest, `go test`, `cargo test`, or `make test`. If they fail, the agent gets the output and one more turn; if they pass, you see "GoalProof verified" and the evidence is saved in `.goalproof/evidence.json`. A project with no checks gets a one-time reminder to run the code instead. The `UserPromptSubmit` hooks record the code's state at the start of each turn and add one short reminder line to each prompt; the Workflow and delegation results under [Results](#6-suggestions-after-the-latest-rule-change-goalproof-only) were measured with it on.
 3. **Start a new session** and run `/context` to confirm the files loaded.
 
-Already have a `~/.claude/CLAUDE.md`? Back it up and merge by hand. Cloud sessions (Claude Code on the web) don't read `~/.claude`: commit the files into the project instead (`CLAUDE.md` and `AGENTS.md` at the root, skills in `.claude/skills/`, agents in `.claude/agents/`, rules in `.claude/settings.json`).
+Already have a `~/.claude/CLAUDE.md`? Back it up and merge by hand. Cloud sessions (Claude Code on the web) don't read `~/.claude`: commit the files into the project instead (`CLAUDE.md` and `AGENTS.md` at the root, skills in `.claude/skills/`, agents in `.claude/agents/`, the three scripts in `.goalproof/`, and rules in `.claude/settings.json` with the hook commands pointing at `$CLAUDE_PROJECT_DIR/.goalproof/goalproof-hook.mjs`).
+
+### Support by agent
+
+| What | Claude Code | Codex CLI, Cursor, Gemini CLI, GitHub Copilot | Any agent, through git and CI |
+|---|---|---|---|
+| Core rules and skills | Loaded through `CLAUDE.md`; skills load natively | Read from `AGENTS.md` (point the agent at it if it uses another file name) | |
+| Plan review by a separate reviewer | The `judge` subagent | A separate session, on the model you pick | |
+| The project's checks run when the agent finishes a turn | `Stop` hook, tested | Not yet. Each of these agents has an end-of-turn hook ([Codex `Stop`](https://developers.openai.com/codex/hooks), [Cursor `stop`](https://cursor.com/docs/agent/hooks), [Gemini CLI `AfterAgent`](https://geminicli.com/docs/hooks/)), so an adapter is a small translation; none has been written or tested | |
+| The same checks before each commit and in CI | | | [`adapters/ci/`](adapters/ci/): pre-commit hook tested; GitHub Actions workflow not yet run |
 
 ## How it works
 
@@ -363,13 +375,15 @@ For training, fine-tuning, prompt or model comparisons, agents, and benchmarks, 
 |---|---|
 | `PLAN.md` | Confirmed requirements, sub-problems, constraints, budget, and progress. Carries context across sessions. |
 | `LOG.md` | Append-only record of decisions, corrections, judge results, run results, and lessons. |
+| `.goalproof/` | `checks.json` (optional, yours: the commands that decide "done"), plus `evidence.json` and `state.json`, written by the verifier and ignored by git. |
 | `AGENTS.md` | Offered when a project has no instruction file: build and test commands, misleading spots, decisions not recorded in the repo, and repeated corrections. |
 
 ## Design
 
 - **The core file stays short** (Claude Code's docs suggest under 200 lines per instruction file) and holds only what applies to every task, because longer files reduce how closely each rule is followed.
 - **Multi-step procedures are skills**, loaded only when a task needs them.
-- **Rules that must always hold are enforced** with permission rules or hooks where the agent supports them, because instruction files are context, not enforcement.
+- **One core, thin adapters.** The universal part, `AGENTS.md`, the skills, and the verifier in `verify/`, works the same for every agent. Agent-specific wiring lives in `adapters/`: each adapter only translates the agent's hook format to the verifier and back, so GoalProof never becomes another coding agent.
+- **Verification doesn't depend on the agent's word.** Instruction files are context, not enforcement, so where the agent allows it, GoalProof checks outcomes itself. Rules that must always hold are enforced with permission rules or hooks. In Claude Code, the `Stop` hook runs the project's checks whenever a turn changed code; a pre-commit hook and a CI workflow (`adapters/ci/`) run the same checks with no agent involved. In a live test, with GoalProof's instructions off and a prompt saying there was no need to run anything, the agent without the hook shipped a fix that failed the project's own test for an empty string. With the hook, the failing test sent it back, it handled the empty string, and the checks passed (\$0.07 vs \$0.09 for the session).
 - **Model names live in `models.md`**, so a new model lineup means editing one file.
 - **Subagents are used sparingly and reused.** The Claude Code `judge` reads `PLAN.md` instead of a retyped brief, starts without your instruction files (`omitClaudeMd`), stops after 3 turns, and reviews at most twice. A second review continues the same session with only the changes, so the startup cost is paid once. Both agents reply with a short answer plus evidence, and only that reply enters the main conversation.
 
@@ -397,13 +411,13 @@ No. It removes no capability: the agent keeps all its tools, models, subagents, 
 - It keeps changes scoped to the task, and mentions unrelated improvements instead of making them.
 - It avoids subagents for small lookups, because each one adds a large fixed token cost.
 
-Each rule states its reason, and any of them can be overridden in the moment ("skip the review", "just do it", "use Opus for this"). The only hard blocks are the optional permission rules in `settings.example.json` (no force-push, no reading `.env` files), which you install yourself.
+Each rule states its reason, and any of them can be overridden in the moment ("skip the review", "just do it", "use Opus for this"). The only hard checks are optional ones you install yourself: permission rules (no force-push, no reading `.env` files), the `Stop` hook, which runs your project's checks and sends the agent back once if they fail (never twice), and the pre-commit hook.
 
 A rule can still backfire, so rules are tested. Our first A/B test found one: "keep changes scoped" made the agent build a narrower parser than it would have without GoalProof, which cost extra rounds with the user. We changed the rule ("handling the inputs the request implies is part of the task"), and in the re-run that task tied with the baseline. The same test found a new miss, on the 4-session project, which is reported under [Results](#3-a-4-session-project). Every rule change is re-tested.
 
 ## Disclaimer
 
-Provided as is under the [MIT license](LICENSE), without warranty of any kind. The permission rules in `settings.example.json` catch common risky commands but are not a security boundary, so review them before relying on them. Model names and prices in `models.md` are a snapshot from November 2026; check your provider's current pricing before making cost decisions. The eval checklist in the `ai-experiment` skill is a summary written for this project, based on Anthropic's published eval guidance.
+Provided as is under the [MIT license](LICENSE), without warranty of any kind. The permission rules in `adapters/claude-code/settings.example.json` catch common risky commands but are not a security boundary, so review them before relying on them. Model names and prices in `models.md` are a snapshot from November 2026; check your provider's current pricing before making cost decisions. The eval checklist in the `ai-experiment` skill is a summary written for this project, based on Anthropic's published eval guidance.
 
 ## Credits
 

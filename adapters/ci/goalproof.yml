@@ -1,0 +1,26 @@
+# GoalProof verification in CI: the same checks GoalProof runs locally, on every push and pull request,
+# independent of which agent or person wrote the code. Copy to .github/workflows/goalproof.yml in your project.
+# It needs goalproof-core.mjs and goalproof-verify.mjs in the project's .goalproof/ folder (see adapters/ci/README.md).
+name: GoalProof verify
+on: [push, pull_request]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # Install what your checks need. Replace or extend this step for other languages (pip, go, cargo, ...).
+      - name: Install dependencies
+        if: hashFiles('package-lock.json') != ''
+        run: npm ci
+      - name: Run the project's checks
+        run: node .goalproof/goalproof-verify.mjs --require-checks
+      - name: Keep the evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: goalproof-evidence
+          path: .goalproof/evidence.json
+          if-no-files-found: ignore
