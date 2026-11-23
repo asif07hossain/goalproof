@@ -1,0 +1,7 @@
+# Local deck build script (uses machine-specific paths)
+deck/
+
+# Office lock files and OS clutter
+~$*
+.DS_Store
+Thumbs.db
